@@ -9,6 +9,8 @@ import numpy as np
 import time
 import random as rand
 
+import gym
+
 class Projectile:
     def __init__(self,kind,start,loc,rng,Id):
         self.start_time = start
@@ -35,7 +37,7 @@ class Projectile:
 # Target StartLocations
 # MagazineSize: int the maximum number of interceptors
 #
-class SimpSim:
+class SimpSimEnv(gym.Env):
     
     def __init__(self, RangeIncrements, ThetaIncremets,  MagazineSize):
         self.simTime = 0
@@ -49,7 +51,7 @@ class SimpSim:
         self.targets = []
         self.interceptors = []
 
-                    
+        self.action_space = gym.spaces.Discrete(4)
         self.damageTaken = 0
         self.threatsKilled = 0
         self.simDone = False
@@ -136,8 +138,10 @@ class SimpSim:
                 tempAngle = 0
             self.Angle = tempAngle
             print("TURNED RIGHT!")
-        else:
+        elif action == "Wait":
             pass
+        else:
+            print("ERROR: Gave an unexpected action.")
         
         # Check "hit" for theta in self.thetaInc (see if int has crossed target)
         for col in self.state:
@@ -214,13 +218,13 @@ if __name__ == "__main__":
     TargetType = ['Threat1','Threat2','Threat1','Threat1']
     MaxAmmo = 20
     
-    theSim = SimpSim(RangeNumPixels,ThetaNumPixels, MaxAmmo)
+    theSim = SimpSimEnv(RangeNumPixels,ThetaNumPixels, MaxAmmo)
     
     curState = theSim.ResetState(NumberOfTargets,TargetStartTimes,TargetStartLocations,TargetType)
     
     theSim.PrintState(curState)
     for i in range(max(TargetStartTimes)+30):
-        time.sleep(1.000)
+        #time.sleep(1.000)
         
         if i == 2:
             out = theSim.UpdateState("Shoot")
