@@ -23,27 +23,6 @@ filepath = pkg_resources.resource_filename('gym_raid', path)
 config = cfg_load.load(filepath)
 logging.config.dictConfig(config['LOGGING'])
 
-
-# Input param generator
-class inputGenerator:
-    def __init__(self):
-        pass
-    
-    def GenRaidEnvParams():
-        RangeIncrements = 25
-        ThetaIncrements = 12
-        MagazineSize = 20
-        
-        return RangeIncrements,ThetaIncrements,MagazineSize
-        
-    def GenTargetEnvParams():
-        NumberOfTargets = 4
-        TargetStartTimes = [0,0,3,12]
-        TargetStartLocations = [0,4,7,0]
-        TargetType = ['Threat1','Threat2','Threat1','Threat1']
-        
-        return NumberOfTargets, TargetStartTimes,TargetStartLocations, TargetType
-
 # Projectile class for threats and projectiles
 class Projectile:
     def __init__(self,kind,start,loc,rng,Id):
@@ -124,7 +103,7 @@ class RaidEnv(gym.Env):
         self.threatsKilled = 0
         self.simDone = False
         
-        self.state = [self.stateGrid,self.Angle,self.Ammo]
+        self.state = [self.stateGrid,self.Angle,self.MagSize]
         
         #Intialize random number generator for consistency
         rand.seed(12)
@@ -260,7 +239,8 @@ class RaidEnv(gym.Env):
         self.simDone = self.CheckDone()
         self.state = [self.stateGrid,self.Angle,self.Ammo]
         # Return a long single dimension array version of state
-        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.threatsKilled,self.simDone
+        self.reward = self.threatsKilled
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.reward,self.simDone, []
     #End of UpdateState
 
     def CheckDone(self):

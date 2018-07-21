@@ -25,6 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import gym
+import gym_raid
 
 class GameManager:
     def __init__(self, game_name, display):

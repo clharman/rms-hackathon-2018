@@ -30,7 +30,7 @@ class Config:
     # Game configuration
 
     # Name of the game, with version (e.g. PongDeterministic-v0)
-    ATARI_GAME = 'CartPole-v0'
+    ATARI_GAME = 'Raid-v0'
 
     # Enable to see the trained agent in action
     PLAY_MODE = False
@@ -79,11 +79,11 @@ class Config:
 
     # Input of the DNN
     STACKED_FRAMES = 1
-    IMAGE_WIDTH = 4
+    IMAGE_WIDTH = 25*12*3+2
     #IMAGE_HEIGHT = 1
 
     # Total number of episodes and annealing frequency
-    EPISODES = 900
+    EPISODES = 100
     ANNEALING_EPISODE_COUNT = 100
 
     # Entropy regualrization hyper-parameter
@@ -121,7 +121,7 @@ class Config:
     # Enable to save models every SAVE_FREQUENCY episodes
     SAVE_MODELS = True
     # Save every SAVE_FREQUENCY episodes
-    SAVE_FREQUENCY = 800
+    SAVE_FREQUENCY = 90
     
     # Print stats every PRINT_STATS_FREQUENCY episodes
     PRINT_STATS_FREQUENCY = 1
