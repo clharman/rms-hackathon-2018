@@ -121,7 +121,8 @@ class RaidEnv(gym.Env):
         
         self.state = [self.stateGrid,self.Angle,self.Ammo]
         
-        return self.state
+        # Return a long single dimension array version of state
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo])
 
     def step(self,action):
         curTime = self.simTime
@@ -227,7 +228,8 @@ class RaidEnv(gym.Env):
         self.simTime = newTime
         self.simDone = self.CheckDone()
         self.state = [self.stateGrid,self.Angle,self.Ammo]
-        return self.state,self.threatsKilled,self.simDone
+        # Return a long single dimension array version of state
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.threatsKilled,self.simDone
     #End of UpdateState
 
     def CheckDone(self):
