@@ -1,156 +1,254 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
 """
-Simulate the simplifie Raid selling environment.
+Created on Fri Jul 20 11:38:10 2018
 
-Each episode is selling a single raid.
+@author: Hack7
 """
 
-# core modules
-import logging.config
-import math
-import pkg_resources
-import random
-
-# 3rd party modules
-from gym import spaces
-import cfg_load
-import gym
 import numpy as np
+import time
+import random as rand
+
+import gym
+
+class Projectile:
+    def __init__(self,kind,start,loc,rng,Id):
+        self.start_time = start
+        self.location = loc #Theta location
+        self.range = rng #Range location
+        self.kind = kind
+        self.id = Id
+        self.alive = True
+        speed = 0
+        if kind == 'Threat1':
+            speed = 1
+        elif kind == 'Threat2':
+            speed = 2
+        elif kind == 'Inter':
+            speed = -1
+        self.speed = speed
 
 
-path = 'config.yaml'  # always use slash in packages
-filepath = pkg_resources.resource_filename('gym_raid', path)
-config = cfg_load.load(filepath)
-logging.config.dictConfig(config['LOGGING'])
+# Constructor takes
+# RangeIncrements: int of the number of range (y) increments
+# ThetaIncrements: int of the number of theta (x) increments
+# NumTargets: 
+# Target StartTimes
+# Target StartLocations
+# MagazineSize: int the maximum number of interceptors
+#
+class SimpSimEnv(gym.Env):
+    
+    def __init__(self, RangeIncrements, ThetaIncremets,  MagazineSize):
+        self.simTime = 0
+        self.rInc = RangeIncrements
+        self.thetaInc = ThetaIncremets
+        self.Ammo = MagazineSize
+        self.Angle = 0
+        self.projCount = 0 # Ids for the projectiles
+        
+        self.state = np.zeros((self.thetaInc,self.rInc,3))
+        self.targets = []
+        self.interceptors = []
 
+        self.action_space = gym.spaces.Discrete(4)
+        self.damageTaken = 0
+        self.threatsKilled = 0
+        self.simDone = False
+        
+        #Intialize random number generator for consistency
+        rand.seed(12)
+    
+    def ResetState(self, NumTargets, TarStartTimes, TarStartLocations, TarTypes):
+        self.numThreats = NumTargets
+        tars = []
+        for i in range(self.numThreats):
+            tars.append(Projectile(TarTypes[i],TarStartTimes[i],TarStartLocations[i],-1,self.projCount+1))
+            self.projCount += 1
+        self.targets = tars
+        self.interceptors = []
+        self.targetDict = {'Threat1':0,'Threat2':1,'Inter':2}
+        
+        # Setup the initial state
+        for tar in self.targets:
+            if tar.start_time == 0:
+                tar.range = 0
+                if not (tar.kind == 'Threat1' or tar.kind == 'Threat2'):
+                    print("Unrecognized threat kind")
+                else:
+                    self.state[tar.location][0][self.targetDict[tar.kind]] = tar.id
+        
+        return self.state
 
-def get_chance(x):
-    """Get probability that a raid will be sold at price x."""
-    e = math.exp(1)
-    return (1.0 + e) / (1. + math.exp(x + 1))
-
-
-class RaidEnv(gym.Env):
-    """
-    Define a simple Raid environment.
-
-    The environment defines which actions can be taken at which point and
-    when the agent receives which reward.
-    """
-
-    def __init__(self):
-        self.__version__ = "0.1.0"
-        logging.info("RaidEnv - Version {}".format(self.__version__))
-
-        # General variables defining the environment
-        self.MAX_PRICE = 2.0
-        self.TOTAL_TIME_STEPS = 2
-
-        self.curr_step = -1
-        self.is_raid_sold = False
-
-        # Define what the agent can do
-        # Sell at 0.00 EUR, 0.10 Euro, ..., 2.00 Euro
-        self.action_space = spaces.Discrete(21)
-
-        # Observation is the remaining time
-        low = np.array([0.0,  # remaining_tries
-                        ])
-        high = np.array([self.TOTAL_TIME_STEPS,  # remaining_tries
-                         ])
-        self.observation_space = spaces.Box(low, high, dtype=np.float32)
-
-        # Store what the agent tried
-        self.curr_episode = -1
-        self.action_episode_memory = []
-
-    def step(self, action):
-        """
-        The agent takes a step in the environment.
-
-        Parameters
-        ----------
-        action : int
-
-        Returns
-        -------
-        ob, reward, episode_over, info : tuple
-            ob (object) :
-                an environment-specific object representing your observation of
-                the environment.
-            reward (float) :
-                amount of reward achieved by the previous action. The scale
-                varies between environments, but the goal is always to increase
-                your total reward.
-            episode_over (bool) :
-                whether it's time to reset the environment again. Most (but not
-                all) tasks are divided up into well-defined episodes, and done
-                being True indicates the episode has terminated. (For example,
-                perhaps the pole tipped too far, or you lost your last life.)
-            info (dict) :
-                 diagnostic information useful for debugging. It can sometimes
-                 be useful for learning (for example, it might contain the raw
-                 probabilities behind the environment's last state change).
-                 However, official evaluations of your agent are not allowed to
-                 use this for learning.
-        """
-        if self.is_raid_sold:
-            raise RuntimeError("Episode is done")
-        self.curr_step += 1
-        self._take_action(action)
-        reward = self._get_reward()
-        ob = self._get_state()
-        return ob, reward, self.is_raid_sold, {}
-
-    def _take_action(self, action):
-        self.action_episode_memory[self.curr_episode].append(action)
-        self.price = ((float(self.MAX_PRICE) /
-                      (self.action_space.n - 1)) * action)
-
-        chance_to_take = get_chance(self.price)
-        raid_is_sold = (random.random() < chance_to_take)
-
-        if raid_is_sold:
-            self.is_raid_sold = True
-
-        remaining_steps = self.TOTAL_TIME_STEPS - self.curr_step
-        time_is_over = (remaining_steps <= 0)
-        throw_away = time_is_over and not self.is_raid_sold
-        if throw_away:
-            self.is_raid_sold = True  # abuse this a bit
-            self.price = 0.0
-
-    def _get_reward(self):
-        """Reward is given for a sold raid."""
-        if self.is_raid_sold:
-            return self.price - 1
+    def UpdateState(self,action):
+        curTime = self.simTime
+        newTime = curTime+1
+        print("SimTime is now: ",newTime)
+        for tar in self.targets:
+            if tar.alive:
+                curTheta = tar.location
+                curRange = tar.range
+                newRange = newTime*tar.speed - tar.start_time*tar.speed
+                if newRange >= self.rInc:
+                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
+                    print("You got hit!!!")
+                    self.damageTaken += 1
+                    tar.alive = False
+                elif newRange >= 0: #TODO: This could result in threats stomping each other
+                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
+                    self.state[curTheta][newRange][self.targetDict[tar.kind]] = tar.id
+                    tar.range = newRange
+        
+        for cept in self.interceptors:
+            if cept.alive:
+                curRange = cept.range
+                newRange = (newTime - cept.start_time)*cept.speed + self.rInc - 1
+                if newRange < 0:
+                    self.state[cept.location][curRange][self.targetDict[cept.kind]] = 0
+                    cept.alive = False
+                else:
+                    self.state[cept.location][curRange][self.targetDict[cept.kind]] = 0
+                    self.state[cept.location][newRange][self.targetDict[cept.kind]] = cept.id
+                    cept.range = newRange
+        
+        
+        # Perform action
+        if action == "Shoot":
+            if self.Ammo > 0:
+                # Shooting means creating a new interceptor at current angle for the new time
+                self.interceptors.append(Projectile('Inter',newTime,self.Angle,self.rInc-1,self.projCount+1))
+                self.projCount += 1
+                self.state[self.Angle][self.rInc-1][2] = self.projCount
+                self.Ammo -= 1
+                print("TOOK A SHOT!!!")
+                print("Remaining ammo is:",self.Ammo)
+            else:
+                print("Can't shoot! Out of ammo!")
+        elif action == "Left":
+            tempAngle = self.Angle - 1
+            # Wrap around
+            if tempAngle < 0:
+                tempAngle = self.thetaInc -1
+            self.Angle = tempAngle
+            print("TURNED LEFT!")
+        elif action == "Right":
+            tempAngle = self.Angle + 1
+            # Wrap around
+            if tempAngle >= self.thetaInc:
+                tempAngle = 0
+            self.Angle = tempAngle
+            print("TURNED RIGHT!")
+        elif action == "Wait":
+            pass
         else:
-            return 0.0
+            print("ERROR: Gave an unexpected action.")
+        
+        # Check "hit" for theta in self.thetaInc (see if int has crossed target)
+        for col in self.state:
+            IntIdsFound = []
+            HitTarId = 0
+            for row in col:
+                if row[2] != 0:
+                    IntIdsFound.append(row[2])
+                if len(IntIdsFound) > 0:
+                    if row[0] != 0:
+                        HitTarId = row[0]
+                        print("HIT A TARGET!!!")
+                    elif row[1] != 0:
+                        HitTarId = row[1]
+                        print("HIT A TARGET!!!")
+                if HitTarId != 0:
+                    break
+            
+            if HitTarId != 0:
+                for cept in self.interceptors:
+                    for tar in self.targets:
+                        for ID in IntIdsFound:
+                            #Check current interceptor and target for the ones that collided
+                            # also make sure target wasn't killed by a previous shot
+                            if ID == cept.id and HitTarId == tar.id and tar.alive:
+                                effect = rand.random()
+                                print("Rand draw was: ",effect)
+                                # Interceptor dies regardless of if the target dies
+                                cept.alive = False
+                                self.state[cept.location][cept.range][self.targetDict[cept.kind]] = 0
+                                if effect > 0.3:
+                                    tar.alive = False
+                                    self.state[tar.location][tar.range][self.targetDict[tar.kind]] = 0
+                                    self.threatsKilled += 1
+                                    print("KILLED A TARGET!!!")
+            
 
-    def reset(self):
-        """
-        Reset the state of the environment and returns an initial observation.
+                
+        
+        self.simTime = newTime
+        self.simDone = self.CheckDone()
+        return self.state,self.threatsKilled,self.simDone
+    #End of UpdateState
 
-        Returns
-        -------
-        observation (object): the initial observation of the space.
-        """
-        self.curr_episode += 1
-        self.action_episode_memory.append([])
-        self.is_raid_sold = False
-        self.price = 1.00
-        return self._get_state()
+    def CheckDone(self):
+        done = False
+        lastStart = 0
+        for tar in self.targets:
+            lastStart = max(tar.start_time,lastStart)
+        if self.simTime > lastStart+self.rInc+1:
+            done = True
+            print("End of Wave! Here's how you did:")
+            if self.threatsKilled == len(self.targets):
+                print("Congrats you defeated the wave!!!")
+            else:
+                print("You failed to defeat the wave.")
+                print("There were",len(self.targets),"targets and you killed",self.threatsKilled)
+                print("and you got hit",self.damageTaken,"times.")
+                
+        return done
 
-    def _render(self, mode='human', close=False):
-        return
+    def PrintState(self,state):
+        print("The current gun angle is:")
+        print(self.Angle*30)
+        print("The current sim state is:")
+        print(state)
 
-    def _get_state(self):
-        """Get the observation."""
-        ob = [self.TOTAL_TIME_STEPS - self.curr_step]
-        return ob
+if __name__ == "__main__":
+    RangeNumPixels = 25
+    ThetaNumPixels = 12
+    NumberOfTargets = 4
+    TargetStartTimes = [0,0,3,12]
+    TargetStartLocations = [0,4,7,0]
+    TargetType = ['Threat1','Threat2','Threat1','Threat1']
+    MaxAmmo = 20
+    
+    theSim = SimpSimEnv(RangeNumPixels,ThetaNumPixels, MaxAmmo)
+    
+    curState = theSim.ResetState(NumberOfTargets,TargetStartTimes,TargetStartLocations,TargetType)
+    
+    theSim.PrintState(curState)
+    for i in range(max(TargetStartTimes)+30):
+        #time.sleep(1.000)
+        
+        if i == 2:
+            out = theSim.UpdateState("Shoot")
+        elif i >= 3 and i < 7:
+            out = theSim.UpdateState("Right")
+        elif i == 7:
+            out = theSim.UpdateState("Shoot")
+        elif i == 8:
+            out = theSim.UpdateState("Shoot")
+        elif i >= 10 and i < 13:
+            out = theSim.UpdateState("Right")
+        elif i == 14:
+            out = theSim.UpdateState("Shoot")
+        elif i >= 15 and i <22:
+            out = theSim.UpdateState("Left")
+        elif i == 23 or i == 24 or i == 25:
+            out = theSim.UpdateState("Shoot")
+        else:
+            out = theSim.UpdateState("Wait")
+        
+        theSim.PrintState(out[0])
+        if out[2]:
+            break
 
-    def seed(self, seed):
-        random.seed(seed)
-        np.random.seed
+
+
+print("End of Script")
