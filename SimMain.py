@@ -7,6 +7,7 @@ Created on Fri Jul 20 11:38:10 2018
 
 import numpy as np
 import time
+import random as rand
 
 class Projectile:
     def __init__(self,kind,start,loc,rng,Id):
@@ -37,7 +38,7 @@ class Projectile:
 class SimpSim:
     
     def __init__(self, RangeIncrements, ThetaIncremets, NumTargets, TarStartTimes, 
-                 TarStartLocations, MagazineSize):
+                 TarStartLocations, TarTypes, MagazineSize):
         self.simTime = 0
         self.rInc = RangeIncrements
         self.thetaInc = ThetaIncremets
@@ -50,7 +51,7 @@ class SimpSim:
         self.numThreats = NumTargets
         tars = []
         for i in range(self.numThreats):
-            tars.append(Projectile('Threat1',TarStartTimes[i],TarStartLocations[i],0,self.projCount+1))
+            tars.append(Projectile(TarTypes[i],TarStartTimes[i],TarStartLocations[i],-1,self.projCount+1))
             self.projCount += 1
         self.targets = tars
         self.interceptors = []
@@ -59,6 +60,7 @@ class SimpSim:
         # Setup the initial state
         for tar in self.targets:
             if tar.start_time == 0:
+                tar.range = 0
                 if tar.kind == 'Threat1':
                     self.state[tar.location][0][0] = tar.id
                 elif tar.kind == 'Threat2':
@@ -68,6 +70,9 @@ class SimpSim:
                     
         self.damageTaken = 0
         self.threatsKilled = 0
+        
+        #Intialize random number generator for consistency
+        rand.seed(12)
     
     def GetSimState(self):
         return self.state
@@ -78,17 +83,17 @@ class SimpSim:
         print("SimTime is now: ",newTime)
         for tar in self.targets:
             if tar.alive:
-                #curTheta = tar.location
+                curTheta = tar.location
                 curRange = tar.range
                 newRange = newTime*tar.speed - tar.start_time*tar.speed
                 if newRange >= self.rInc:
-                    self.state[tar.location][curRange][self.targetDict[tar.kind]] = 0
+                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
                     print("You got hit!!!")
                     self.damageTaken += 1
                     tar.alive = False
-                elif curRange >= 0:
-                    self.state[tar.location][curRange][self.targetDict[tar.kind]] = 0
-                    self.state[tar.location][newRange][self.targetDict[tar.kind]] = tar.id
+                elif newRange >= 0: #TODO: This could result in threats stomping each other
+                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
+                    self.state[curTheta][newRange][self.targetDict[tar.kind]] = tar.id
                     tar.range = newRange
         
         for cept in self.interceptors:
@@ -144,6 +149,9 @@ class SimpSim:
                     if row[0] != 0:
                         HitTarId = row[0]
                         print("HIT A TARGET!!!")
+                    elif row[1] != 0:
+                        HitTarId = row[1]
+                        print("HIT A TARGET!!!")
                 if HitTarId != 0:
                     break
             
@@ -151,13 +159,18 @@ class SimpSim:
                 for cept in self.interceptors:
                     for tar in self.targets:
                         for ID in IntIdsFound:
-                            if ID == cept.id and HitTarId == tar.id:
-                                effect = 1.0 # Needs to be random num
+                            #Check current interceptor and target for the ones that collided
+                            # also make sure target wasn't killed by a previous shot
+                            if ID == cept.id and HitTarId == tar.id and tar.alive:
+                                effect = rand.random()
+                                print("Rand draw was: ",effect)
+                                # Interceptor dies regardless of if the target dies
                                 cept.alive = False
                                 self.state[cept.location][cept.range][self.targetDict[cept.kind]] = 0
-                                if effect > 0.6:
+                                if effect > 0.3:
                                     tar.alive = False
                                     self.state[tar.location][tar.range][self.targetDict[tar.kind]] = 0
+                                    self.threatsKilled += 1
                                     print("KILLED A TARGET!!!")
             
 
@@ -165,6 +178,15 @@ class SimpSim:
         
         self.simTime = newTime
 
+
+    def CheckWin(self):
+        print("End of Wave! Here's how you did:")
+        if self.threatsKilled == len(self.targets):
+            print("Congrats you defeated the wave!!!")
+        else:
+            print("You failed to defeat the wave.")
+            print("There were",len(self.targets),"targets and you killed",self.threatsKilled)
+            print("and you got hit",self.damageTaken,"times.")
 
     def PrintState(self):
         print("The current gun angle is:")
@@ -178,27 +200,38 @@ if __name__ == "__main__":
     NumberOfTargets = 4
     TargetStartTimes = [0,0,3,12]
     TargetStartLocations = [0,4,7,0]
+    TargetType = ['Threat1','Threat2','Threat1','Threat1']
     MaxAmmo = 20
     
     theSim = SimpSim(RangeNumPixels,ThetaNumPixels,NumberOfTargets,TargetStartTimes,
-                     TargetStartLocations, MaxAmmo)
+                     TargetStartLocations, TargetType, MaxAmmo)
     
     theSim.PrintState()
-    for i in range(35):
+    for i in range(max(TargetStartTimes)+27):
         time.sleep(1.000)
         
-        if i == 7:
+        if i == 2:
             theSim.UpdateState("Shoot")
-        elif i >= 8 and i < 12:
+        elif i >= 3 and i < 7:
             theSim.UpdateState("Right")
-        elif i == 13:
+        elif i == 7:
             theSim.UpdateState("Shoot")
-        elif i == 15:
+        elif i == 8:
+            theSim.UpdateState("Shoot")
+        elif i >= 10 and i < 13:
+            theSim.UpdateState("Right")
+        elif i == 14:
+            theSim.UpdateState("Shoot")
+        elif i >= 15 and i <22:
             theSim.UpdateState("Left")
+        elif i == 23 or i == 24 or i == 25:
+            theSim.UpdateState("Shoot")
         else:
             theSim.UpdateState("Wait")
         
         theSim.PrintState()
+        
+    theSim.CheckWin()
 
 
 print("End of Script")
