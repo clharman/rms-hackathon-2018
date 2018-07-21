@@ -102,6 +102,7 @@ class RaidEnv(gym.Env):
         self.damageTaken = 0
         self.threatsKilled = 0
         self.simDone = False
+        self.dictActions = { 0:'Shoot', 1:'Left', 2:'Right', 3:'Wait'}
         
         self.state = [self.stateGrid,self.Angle,self.MagSize]
         
@@ -167,7 +168,7 @@ class RaidEnv(gym.Env):
         
         
         # Perform action
-        if action == "Shoot":
+        if self.dictActions[action] == 'Shoot':
             if self.Ammo > 0:
                 # Shooting means creating a new interceptor at current angle for the new time
                 self.interceptors.append(Projectile('Inter',newTime,self.Angle,self.rInc-1,self.projCount+1))
@@ -178,21 +179,21 @@ class RaidEnv(gym.Env):
                 print("Remaining ammo is:",self.Ammo)
             else:
                 print("Can't shoot! Out of ammo!")
-        elif action == "Left":
+        elif self.dictActions[action] == 'Left':
             tempAngle = self.Angle - 1
             # Wrap around
             if tempAngle < 0:
                 tempAngle = self.thetaInc -1
             self.Angle = tempAngle
             print("TURNED LEFT!")
-        elif action == "Right":
+        elif self.dictActions[action] == 'Right':
             tempAngle = self.Angle + 1
             # Wrap around
             if tempAngle >= self.thetaInc:
                 tempAngle = 0
             self.Angle = tempAngle
             print("TURNED RIGHT!")
-        elif action == "Wait":
+        elif self.dictActions[action] == 'Wait':
             pass
         else:
             print("ERROR: Gave an unexpected action.")
