@@ -83,8 +83,8 @@ class Config:
     #IMAGE_HEIGHT = 1
 
     # Total number of episodes and annealing frequency
-    EPISODES = 10
-    ANNEALING_EPISODE_COUNT = 10
+    EPISODES = 900
+    ANNEALING_EPISODE_COUNT = 100
 
     # Entropy regualrization hyper-parameter
     BETA_START = 0.01
@@ -121,7 +121,7 @@ class Config:
     # Enable to save models every SAVE_FREQUENCY episodes
     SAVE_MODELS = True
     # Save every SAVE_FREQUENCY episodes
-    SAVE_FREQUENCY = 5
+    SAVE_FREQUENCY = 800
     
     # Print stats every PRINT_STATS_FREQUENCY episodes
     PRINT_STATS_FREQUENCY = 1

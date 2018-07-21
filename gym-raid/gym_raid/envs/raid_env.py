@@ -5,11 +5,26 @@ Created on Fri Jul 20 11:38:10 2018
 @author: Hack7
 """
 
-import numpy as np
 import time
 import random as rand
 
+# core modules
+import logging.config
+import math
+import pkg_resources
+
+# 3rd party modules
+from gym import spaces
+import cfg_load
 import gym
+import numpy as np
+
+
+path = 'config.yaml'  # always use slash in packages
+filepath = pkg_resources.resource_filename('gym_raid', path)
+config = cfg_load.load(filepath)
+logging.config.dictConfig(config['LOGGING'])
+
 
 class Projectile:
     def __init__(self,kind,start,loc,rng,Id):
@@ -37,7 +52,7 @@ class Projectile:
 # Target StartLocations
 # MagazineSize: int the maximum number of interceptors
 #
-class SimpSimEnv(gym.Env):
+class RaidEnv(gym.Env):
     
     def __init__(self, RangeIncrements, ThetaIncremets,  MagazineSize):
         self.simTime = 0
