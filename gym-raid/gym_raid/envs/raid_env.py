@@ -6,7 +6,7 @@ Created on Fri Jul 20 11:38:10 2018
 """
 
 import time
-import random as rand
+import numpy.random as rand
 
 # core modules
 import logging.config
@@ -17,8 +17,6 @@ import pkg_resources
 import cfg_load
 import gym
 import numpy as np
-
-from InputGenerator import inputGenerator
 
 path = 'config.yaml'  # always use slash in packages
 filepath = pkg_resources.resource_filename('gym_raid', path)
@@ -43,6 +41,37 @@ class Projectile:
             speed = -1
         self.speed = speed
 
+# Input param generator
+# Levels are ints from 1 to 5
+class inputGenerator():
+    def __init__(self,num_threats=1,time_difficulty=1,threat_difficulty=1,magazine_difficulty=1):
+        self.RangeIncrements = 25
+        self.ThetaIncrements = 12
+        self.probability_kill = 0.7
+        self.num_threats = num_threats
+        self.time_difficulty = time_difficulty
+        self.threat_difficulty = threat_difficulty
+        self.magazine_difficulty = magazine_difficulty
+
+    def GenRaidEnvParams(self):
+        # Number of bullets determined by pk, threat count, and difficulty (5 is basically impossible)
+        self.MagazineSize = math.ceil((self.num_threats / self.probability_kill) * 5 / self.magazine_difficulty)
+
+        return self.RangeIncrements, self.ThetaIncrements, self.MagazineSize, self.probability_kill
+        
+    def GenTargetEnvParams(self):
+
+        TargetStartTimes = rand.randint(0, math.ceil(self.num_threats * (self.RangeIncrements/2) * 1 / self.time_difficulty), self.num_threats)
+        TargetStartLocations = rand.randint(0, 12, self.num_threats)
+
+        TargetType = []
+        for i in rand.uniform(0,1,self.num_threats):
+            if(i > self.threat_difficulty/10):
+                TargetType.append('Threat1')
+            else:
+                TargetType.append('Threat2')
+        
+        return self.num_threats, TargetStartTimes,TargetStartLocations, TargetType
 
 # Constructor takes
 # RangeIncrements: int of the number of range (y) increments
@@ -56,10 +85,12 @@ class RaidEnv(gym.Env):
     
     def __init__(self):
         self.simTime = 0
-        newParams = inputGenerator.GenRaidEnvParams()
+        self.iGen = inputGenerator(5,1,1,1)
+        newParams = inputGenerator.GenRaidEnvParams(self.iGen)
         self.rInc = newParams[0]
         self.thetaInc = newParams[1]
         self.MagSize = newParams[2]
+        self.probability_kill = newParams[3]
         self.Angle = 0
         self.projCount = 0 # Ids for the projectiles
         
@@ -75,8 +106,8 @@ class RaidEnv(gym.Env):
         #Intialize random number generator for consistency
         rand.seed(12)
     
-    def ResetState(self):
-        NumTargets, TarStartTimes, TarStartLocations, TarTypes = inputGenerator.GenTargetEnvParams()
+    def reset(self):
+        NumTargets, TarStartTimes, TarStartLocations, TarTypes = inputGenerator.GenTargetEnvParams(self.iGen)
         self.numThreats = NumTargets
         tars = []
         for i in range(self.numThreats):
@@ -98,7 +129,7 @@ class RaidEnv(gym.Env):
         
         return self.state
 
-    def UpdateState(self,action):
+    def step(self,action):
         curTime = self.simTime
         newTime = curTime+1
         print("SimTime is now: ",newTime)
@@ -185,12 +216,12 @@ class RaidEnv(gym.Env):
                             #Check current interceptor and target for the ones that collided
                             # also make sure target wasn't killed by a previous shot
                             if ID == cept.id and HitTarId == tar.id and tar.alive:
-                                effect = rand.random()
+                                effect = rand.uniform(0,1)
                                 print("Rand draw was: ",effect)
                                 # Interceptor dies regardless of if the target dies
                                 cept.alive = False
                                 self.state[cept.location][cept.range][self.targetDict[cept.kind]] = 0
-                                if effect > 0.3:
+                                if effect > self.probability_kill:
                                     tar.alive = False
                                     self.state[tar.location][tar.range][self.targetDict[tar.kind]] = 0
                                     self.threatsKilled += 1
@@ -238,7 +269,7 @@ if __name__ == "__main__":
     
     theSim = RaidEnv()
     
-    curState = theSim.ResetState()
+    curState = theSim.step()
     
     theSim.PrintState(curState)
     for i in range(max(TargetStartTimes)+30):
