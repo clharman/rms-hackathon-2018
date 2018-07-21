@@ -52,7 +52,7 @@ if Config.PLAY_MODE:
     Config.LOAD_CHECKPOINT = True
     Config.TRAIN_MODELS = False
     Config.SAVE_MODELS = False
-
+    
 #gym.undo_logger_setup()
 
 # Start main program

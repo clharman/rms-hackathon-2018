@@ -27,6 +27,7 @@
 import os
 import re
 import numpy as np
+import pyglet
 import tensorflow as tf
 
 from Config import Config

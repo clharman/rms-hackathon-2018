@@ -26,7 +26,6 @@
 
 import gym
 
-
 class GameManager:
     def __init__(self, game_name, display):
         self.game_name = game_name
