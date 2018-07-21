@@ -14,11 +14,11 @@ import math
 import pkg_resources
 
 # 3rd party modules
-from gym import spaces
 import cfg_load
 import gym
 import numpy as np
 
+from InputGenerator import inputGenerator
 
 path = 'config.yaml'  # always use slash in packages
 filepath = pkg_resources.resource_filename('gym_raid', path)
@@ -54,11 +54,12 @@ class Projectile:
 #
 class RaidEnv(gym.Env):
     
-    def __init__(self, RangeIncrements, ThetaIncremets,  MagazineSize):
+    def __init__(self):
         self.simTime = 0
-        self.rInc = RangeIncrements
-        self.thetaInc = ThetaIncremets
-        self.Ammo = MagazineSize
+        newParams = inputGenerator.GenRaidEnvParams()
+        self.rInc = newParams[0]
+        self.thetaInc = newParams[1]
+        self.MagSize = newParams[2]
         self.Angle = 0
         self.projCount = 0 # Ids for the projectiles
         
@@ -74,7 +75,8 @@ class RaidEnv(gym.Env):
         #Intialize random number generator for consistency
         rand.seed(12)
     
-    def ResetState(self, NumTargets, TarStartTimes, TarStartLocations, TarTypes):
+    def ResetState(self):
+        NumTargets, TarStartTimes, TarStartLocations, TarTypes = inputGenerator.GenTargetEnvParams()
         self.numThreats = NumTargets
         tars = []
         for i in range(self.numThreats):
@@ -83,6 +85,7 @@ class RaidEnv(gym.Env):
         self.targets = tars
         self.interceptors = []
         self.targetDict = {'Threat1':0,'Threat2':1,'Inter':2}
+        self.Ammo = self.MagSize
         
         # Setup the initial state
         for tar in self.targets:
@@ -233,9 +236,9 @@ if __name__ == "__main__":
     TargetType = ['Threat1','Threat2','Threat1','Threat1']
     MaxAmmo = 20
     
-    theSim = SimpSimEnv(RangeNumPixels,ThetaNumPixels, MaxAmmo)
+    theSim = RaidEnv()
     
-    curState = theSim.ResetState(NumberOfTargets,TargetStartTimes,TargetStartLocations,TargetType)
+    curState = theSim.ResetState()
     
     theSim.PrintState(curState)
     for i in range(max(TargetStartTimes)+30):
