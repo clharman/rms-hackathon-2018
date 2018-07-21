@@ -24,6 +24,27 @@ config = cfg_load.load(filepath)
 logging.config.dictConfig(config['LOGGING'])
 
 
+# Input param generator
+class inputGenerator:
+    def __init__(self):
+        pass
+    
+    def GenRaidEnvParams():
+        RangeIncrements = 25
+        ThetaIncrements = 12
+        MagazineSize = 20
+        
+        return RangeIncrements,ThetaIncrements,MagazineSize
+        
+    def GenTargetEnvParams():
+        NumberOfTargets = 4
+        TargetStartTimes = [0,0,3,12]
+        TargetStartLocations = [0,4,7,0]
+        TargetType = ['Threat1','Threat2','Threat1','Threat1']
+        
+        return NumberOfTargets, TargetStartTimes,TargetStartLocations, TargetType
+
+# Projectile class for threats and projectiles
 class Projectile:
     def __init__(self,kind,start,loc,rng,Id):
         self.start_time = start
@@ -94,7 +115,7 @@ class RaidEnv(gym.Env):
         self.Angle = 0
         self.projCount = 0 # Ids for the projectiles
         
-        self.state = np.zeros((self.thetaInc,self.rInc,3))
+        self.stateGrid = np.zeros((self.thetaInc,self.rInc,3))
         self.targets = []
         self.interceptors = []
 
@@ -102,6 +123,8 @@ class RaidEnv(gym.Env):
         self.damageTaken = 0
         self.threatsKilled = 0
         self.simDone = False
+        
+        self.state = [self.stateGrid,self.Angle,self.Ammo]
         
         #Intialize random number generator for consistency
         rand.seed(12)
@@ -125,9 +148,12 @@ class RaidEnv(gym.Env):
                 if not (tar.kind == 'Threat1' or tar.kind == 'Threat2'):
                     print("Unrecognized threat kind")
                 else:
-                    self.state[tar.location][0][self.targetDict[tar.kind]] = tar.id
+                    self.stateGrid[tar.location][0][self.targetDict[tar.kind]] = tar.id
         
-        return self.state
+        self.state = [self.stateGrid,self.Angle,self.Ammo]
+        
+        # Return a long single dimension array version of state
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo])
 
     def step(self,action):
         curTime = self.simTime
@@ -139,13 +165,13 @@ class RaidEnv(gym.Env):
                 curRange = tar.range
                 newRange = newTime*tar.speed - tar.start_time*tar.speed
                 if newRange >= self.rInc:
-                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
+                    self.stateGrid[curTheta][curRange][self.targetDict[tar.kind]] = 0
                     print("You got hit!!!")
                     self.damageTaken += 1
                     tar.alive = False
                 elif newRange >= 0: #TODO: This could result in threats stomping each other
-                    self.state[curTheta][curRange][self.targetDict[tar.kind]] = 0
-                    self.state[curTheta][newRange][self.targetDict[tar.kind]] = tar.id
+                    self.stateGrid[curTheta][curRange][self.targetDict[tar.kind]] = 0
+                    self.stateGrid[curTheta][newRange][self.targetDict[tar.kind]] = tar.id
                     tar.range = newRange
         
         for cept in self.interceptors:
@@ -153,11 +179,11 @@ class RaidEnv(gym.Env):
                 curRange = cept.range
                 newRange = (newTime - cept.start_time)*cept.speed + self.rInc - 1
                 if newRange < 0:
-                    self.state[cept.location][curRange][self.targetDict[cept.kind]] = 0
+                    self.stateGrid[cept.location][curRange][self.targetDict[cept.kind]] = 0
                     cept.alive = False
                 else:
-                    self.state[cept.location][curRange][self.targetDict[cept.kind]] = 0
-                    self.state[cept.location][newRange][self.targetDict[cept.kind]] = cept.id
+                    self.stateGrid[cept.location][curRange][self.targetDict[cept.kind]] = 0
+                    self.stateGrid[cept.location][newRange][self.targetDict[cept.kind]] = cept.id
                     cept.range = newRange
         
         
@@ -167,7 +193,7 @@ class RaidEnv(gym.Env):
                 # Shooting means creating a new interceptor at current angle for the new time
                 self.interceptors.append(Projectile('Inter',newTime,self.Angle,self.rInc-1,self.projCount+1))
                 self.projCount += 1
-                self.state[self.Angle][self.rInc-1][2] = self.projCount
+                self.stateGrid[self.Angle][self.rInc-1][2] = self.projCount
                 self.Ammo -= 1
                 print("TOOK A SHOT!!!")
                 print("Remaining ammo is:",self.Ammo)
@@ -193,7 +219,7 @@ class RaidEnv(gym.Env):
             print("ERROR: Gave an unexpected action.")
         
         # Check "hit" for theta in self.thetaInc (see if int has crossed target)
-        for col in self.state:
+        for col in self.stateGrid:
             IntIdsFound = []
             HitTarId = 0
             for row in col:
@@ -223,7 +249,7 @@ class RaidEnv(gym.Env):
                                 self.state[cept.location][cept.range][self.targetDict[cept.kind]] = 0
                                 if effect > self.probability_kill:
                                     tar.alive = False
-                                    self.state[tar.location][tar.range][self.targetDict[tar.kind]] = 0
+                                    self.stateGrid[tar.location][tar.range][self.targetDict[tar.kind]] = 0
                                     self.threatsKilled += 1
                                     print("KILLED A TARGET!!!")
             
@@ -232,7 +258,9 @@ class RaidEnv(gym.Env):
         
         self.simTime = newTime
         self.simDone = self.CheckDone()
-        return self.state,self.threatsKilled,self.simDone
+        self.state = [self.stateGrid,self.Angle,self.Ammo]
+        # Return a long single dimension array version of state
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.threatsKilled,self.simDone
     #End of UpdateState
 
     def CheckDone(self):
@@ -253,8 +281,8 @@ class RaidEnv(gym.Env):
         return done
 
     def PrintState(self,state):
-        print("The current gun angle is:")
-        print(self.Angle*30)
+        #print("The current gun angle is:")
+        #print(self.Angle*30)
         print("The current sim state is:")
         print(state)
 
@@ -269,30 +297,30 @@ if __name__ == "__main__":
     
     theSim = RaidEnv()
     
-    curState = theSim.step()
+    curState = theSim.reset()
     
     theSim.PrintState(curState)
     for i in range(max(TargetStartTimes)+30):
         #time.sleep(1.000)
         
         if i == 2:
-            out = theSim.UpdateState("Shoot")
+            out = theSim.step("Shoot")
         elif i >= 3 and i < 7:
-            out = theSim.UpdateState("Right")
+            out = theSim.step("Right")
         elif i == 7:
-            out = theSim.UpdateState("Shoot")
+            out = theSim.step("Shoot")
         elif i == 8:
-            out = theSim.UpdateState("Shoot")
+            out = theSim.step("Shoot")
         elif i >= 10 and i < 13:
-            out = theSim.UpdateState("Right")
+            out = theSim.step("Right")
         elif i == 14:
-            out = theSim.UpdateState("Shoot")
+            out = theSim.step("Shoot")
         elif i >= 15 and i <22:
-            out = theSim.UpdateState("Left")
+            out = theSim.step("Left")
         elif i == 23 or i == 24 or i == 25:
-            out = theSim.UpdateState("Shoot")
+            out = theSim.step("Shoot")
         else:
-            out = theSim.UpdateState("Wait")
+            out = theSim.step("Wait")
         
         theSim.PrintState(out[0])
         if out[2]:
