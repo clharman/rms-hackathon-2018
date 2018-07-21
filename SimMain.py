@@ -37,8 +37,7 @@ class Projectile:
 #
 class SimpSim:
     
-    def __init__(self, RangeIncrements, ThetaIncremets, NumTargets, TarStartTimes, 
-                 TarStartLocations, TarTypes, MagazineSize):
+    def __init__(self, RangeIncrements, ThetaIncremets,  MagazineSize):
         self.simTime = 0
         self.rInc = RangeIncrements
         self.thetaInc = ThetaIncremets
@@ -47,7 +46,18 @@ class SimpSim:
         self.projCount = 0 # Ids for the projectiles
         
         self.state = np.zeros((self.thetaInc,self.rInc,3))
+        self.targets = []
+        self.interceptors = []
+
+                    
+        self.damageTaken = 0
+        self.threatsKilled = 0
+        self.simDone = False
         
+        #Intialize random number generator for consistency
+        rand.seed(12)
+    
+    def ResetState(self, NumTargets, TarStartTimes, TarStartLocations, TarTypes):
         self.numThreats = NumTargets
         tars = []
         for i in range(self.numThreats):
@@ -61,20 +71,11 @@ class SimpSim:
         for tar in self.targets:
             if tar.start_time == 0:
                 tar.range = 0
-                if tar.kind == 'Threat1':
-                    self.state[tar.location][0][0] = tar.id
-                elif tar.kind == 'Threat2':
-                    self.state[tar.location][0][1] = tar.id
-                else:
+                if not (tar.kind == 'Threat1' or tar.kind == 'Threat2'):
                     print("Unrecognized threat kind")
-                    
-        self.damageTaken = 0
-        self.threatsKilled = 0
+                else:
+                    self.state[tar.location][0][self.targetDict[tar.kind]] = tar.id
         
-        #Intialize random number generator for consistency
-        rand.seed(12)
-    
-    def GetSimState(self):
         return self.state
 
     def UpdateState(self,action):
@@ -177,22 +178,32 @@ class SimpSim:
                 
         
         self.simTime = newTime
+        self.simDone = self.CheckDone()
+        return self.state,self.threatsKilled,self.simDone
+    #End of UpdateState
 
+    def CheckDone(self):
+        done = False
+        lastStart = 0
+        for tar in self.targets:
+            lastStart = max(tar.start_time,lastStart)
+        if self.simTime > lastStart+self.rInc+1:
+            done = True
+            print("End of Wave! Here's how you did:")
+            if self.threatsKilled == len(self.targets):
+                print("Congrats you defeated the wave!!!")
+            else:
+                print("You failed to defeat the wave.")
+                print("There were",len(self.targets),"targets and you killed",self.threatsKilled)
+                print("and you got hit",self.damageTaken,"times.")
+                
+        return done
 
-    def CheckWin(self):
-        print("End of Wave! Here's how you did:")
-        if self.threatsKilled == len(self.targets):
-            print("Congrats you defeated the wave!!!")
-        else:
-            print("You failed to defeat the wave.")
-            print("There were",len(self.targets),"targets and you killed",self.threatsKilled)
-            print("and you got hit",self.damageTaken,"times.")
-
-    def PrintState(self):
+    def PrintState(self,state):
         print("The current gun angle is:")
         print(self.Angle*30)
         print("The current sim state is:")
-        print(self.state)
+        print(state)
 
 if __name__ == "__main__":
     RangeNumPixels = 25
@@ -203,35 +214,37 @@ if __name__ == "__main__":
     TargetType = ['Threat1','Threat2','Threat1','Threat1']
     MaxAmmo = 20
     
-    theSim = SimpSim(RangeNumPixels,ThetaNumPixels,NumberOfTargets,TargetStartTimes,
-                     TargetStartLocations, TargetType, MaxAmmo)
+    theSim = SimpSim(RangeNumPixels,ThetaNumPixels, MaxAmmo)
     
-    theSim.PrintState()
-    for i in range(max(TargetStartTimes)+27):
+    curState = theSim.ResetState(NumberOfTargets,TargetStartTimes,TargetStartLocations,TargetType)
+    
+    theSim.PrintState(curState)
+    for i in range(max(TargetStartTimes)+30):
         time.sleep(1.000)
         
         if i == 2:
-            theSim.UpdateState("Shoot")
+            out = theSim.UpdateState("Shoot")
         elif i >= 3 and i < 7:
-            theSim.UpdateState("Right")
+            out = theSim.UpdateState("Right")
         elif i == 7:
-            theSim.UpdateState("Shoot")
+            out = theSim.UpdateState("Shoot")
         elif i == 8:
-            theSim.UpdateState("Shoot")
+            out = theSim.UpdateState("Shoot")
         elif i >= 10 and i < 13:
-            theSim.UpdateState("Right")
+            out = theSim.UpdateState("Right")
         elif i == 14:
-            theSim.UpdateState("Shoot")
+            out = theSim.UpdateState("Shoot")
         elif i >= 15 and i <22:
-            theSim.UpdateState("Left")
+            out = theSim.UpdateState("Left")
         elif i == 23 or i == 24 or i == 25:
-            theSim.UpdateState("Shoot")
+            out = theSim.UpdateState("Shoot")
         else:
-            theSim.UpdateState("Wait")
+            out = theSim.UpdateState("Wait")
         
-        theSim.PrintState()
-        
-    theSim.CheckWin()
+        theSim.PrintState(out[0])
+        if out[2]:
+            break
+
 
 
 print("End of Script")
