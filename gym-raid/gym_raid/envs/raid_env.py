@@ -47,7 +47,7 @@ class inputGenerator():
     def __init__(self,num_threats=1,time_difficulty=1,threat_difficulty=1,magazine_difficulty=1):
         self.RangeIncrements = 25
         self.ThetaIncrements = 12
-        self.probability_kill = 0.7
+        self.probability_kill = 0.9
         self.num_threats = num_threats
         self.time_difficulty = time_difficulty
         self.threat_difficulty = threat_difficulty
@@ -85,7 +85,11 @@ class RaidEnv(gym.Env):
     
     def __init__(self):
         self.simTime = 0
-        self.iGen = inputGenerator(5,1,1,1)
+        num_threats_input = rand.randint(4,10)
+        time_difficulty_input = rand.randint(1,3)
+        threat_difficulty_input = rand.randint(1,3)
+        magazine_difficulty_input = rand.randint(1,3)
+        self.iGen = inputGenerator(num_threats_input,time_difficulty_input,threat_difficulty_input,magazine_difficulty_input)
         newParams = inputGenerator.GenRaidEnvParams(self.iGen)
         self.rInc = newParams[0]
         self.thetaInc = newParams[1]
@@ -120,6 +124,9 @@ class RaidEnv(gym.Env):
         self.interceptors = []
         self.targetDict = {'Threat1':0,'Threat2':1,'Inter':2}
         self.Ammo = self.MagSize
+        self.damageTaken = 0
+        self.simTime = 0
+        self.threatsKilled = 0
         
         # Setup the initial state
         for tar in self.targets:
@@ -138,7 +145,7 @@ class RaidEnv(gym.Env):
     def step(self,action):
         curTime = self.simTime
         newTime = curTime+1
-        print("SimTime is now: ",newTime)
+        #print("SimTime is now: ",newTime)
         for tar in self.targets:
             if tar.alive:
                 curTheta = tar.location
@@ -146,7 +153,7 @@ class RaidEnv(gym.Env):
                 newRange = newTime*tar.speed - tar.start_time*tar.speed
                 if newRange >= self.rInc:
                     self.stateGrid[curTheta][curRange][self.targetDict[tar.kind]] = 0
-                    print("You got hit!!!")
+                    #print("You got hit!!!")
                     self.damageTaken += 1
                     tar.alive = False
                 elif newRange >= 0: #TODO: This could result in threats stomping each other
@@ -175,24 +182,23 @@ class RaidEnv(gym.Env):
                 self.projCount += 1
                 self.stateGrid[self.Angle][self.rInc-1][2] = self.projCount
                 self.Ammo -= 1
-                print("TOOK A SHOT!!!")
-                print("Remaining ammo is:",self.Ammo)
-            else:
-                print("Can't shoot! Out of ammo!")
+                #print("Took a shot, remaining ammo is:",self.Ammo)
+            #else:
+                #print("Can't shoot! Out of ammo!")
         elif self.dictActions[action] == 'Left':
             tempAngle = self.Angle - 1
             # Wrap around
             if tempAngle < 0:
                 tempAngle = self.thetaInc -1
             self.Angle = tempAngle
-            print("TURNED LEFT!")
+            #print("TURNED LEFT!")
         elif self.dictActions[action] == 'Right':
             tempAngle = self.Angle + 1
             # Wrap around
             if tempAngle >= self.thetaInc:
                 tempAngle = 0
             self.Angle = tempAngle
-            print("TURNED RIGHT!")
+            #print("TURNED RIGHT!")
         elif self.dictActions[action] == 'Wait':
             pass
         else:
@@ -208,10 +214,10 @@ class RaidEnv(gym.Env):
                 if len(IntIdsFound) > 0:
                     if row[0] != 0:
                         HitTarId = row[0]
-                        print("HIT A TARGET!!!")
+                        #print("HIT A TARGET!!!", HitTarId)
                     elif row[1] != 0:
                         HitTarId = row[1]
-                        print("HIT A TARGET!!!")
+                        #print("HIT A TARGET!!!", HitTarId)
                 if HitTarId != 0:
                     break
             
@@ -223,15 +229,16 @@ class RaidEnv(gym.Env):
                             # also make sure target wasn't killed by a previous shot
                             if ID == cept.id and HitTarId == tar.id and tar.alive:
                                 effect = rand.uniform(0,1)
-                                print("Rand draw was: ",effect)
+                                #print("Rand draw was: ",effect)
                                 # Interceptor dies regardless of if the target dies
                                 cept.alive = False
-                                self.state[cept.location][cept.range][self.targetDict[cept.kind]] = 0
-                                if effect > self.probability_kill:
+                                #print(self.stateGrid.shape, cept.location, cept.range, len(self.targetDict), cept.kind)
+                                self.stateGrid[cept.location][cept.range][self.targetDict[cept.kind]] = 0
+                                if effect < self.probability_kill:
                                     tar.alive = False
                                     self.stateGrid[tar.location][tar.range][self.targetDict[tar.kind]] = 0
                                     self.threatsKilled += 1
-                                    print("KILLED A TARGET!!!")
+                                    #print("KILLED A TARGET!!!")
             
 
                 
@@ -240,7 +247,7 @@ class RaidEnv(gym.Env):
         self.simDone = self.CheckDone()
         self.state = [self.stateGrid,self.Angle,self.Ammo]
         # Return a long single dimension array version of state
-        self.reward = self.threatsKilled
+        self.reward = self.threatsKilled - self.damageTaken
         return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.reward,self.simDone, []
     #End of UpdateState
 
@@ -251,13 +258,12 @@ class RaidEnv(gym.Env):
             lastStart = max(tar.start_time,lastStart)
         if self.simTime > lastStart+self.rInc+1:
             done = True
-            print("End of Wave! Here's how you did:")
+            #print("End of Wave! Here's how you did:")
             if self.threatsKilled == len(self.targets):
-                print("Congrats you defeated the wave!!!")
+                print("RAID DEFEATED")
             else:
-                print("You failed to defeat the wave.")
-                print("There were",len(self.targets),"targets and you killed",self.threatsKilled)
-                print("and you got hit",self.damageTaken,"times.")
+                print("Killed ", self.threatsKilled, " Out of ", len(self.targets), " targets")
+            print(self.Ammo, " out of ", self.MagSize, " shots left")
                 
         return done
 

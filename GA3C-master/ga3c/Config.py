@@ -37,7 +37,7 @@ class Config:
     # Enable to train
     TRAIN_MODELS = True
     # Load old models. Throws if the model doesn't exist
-    LOAD_CHECKPOINT = False
+    LOAD_CHECKPOINT = True
     # If 0, the latest checkpoint is loaded
     LOAD_EPISODE = 0 
 
@@ -46,11 +46,11 @@ class Config:
     
     # If the dynamic configuration is on, these are the initial values.
     # Number of Agents
-    AGENTS = 1 
+    AGENTS = 4 
     # Number of Predictors
-    PREDICTORS = 1
+    PREDICTORS = 2
     # Number of Trainers
-    TRAINERS = 1
+    TRAINERS = 2
 
     # Device
     DEVICE = 'cpu:0'
@@ -67,14 +67,14 @@ class Config:
     DISCOUNT = 0.99
     
     # Tmax
-    TIME_MAX = 5
+    TIME_MAX = 10
     
     # Reward Clipping
     REWARD_MIN = -1
-    REWARD_MAX = 1
+    REWARD_MAX = 1000000
 
     # Max size of the queue
-    MAX_QUEUE_SIZE = 100
+    MAX_QUEUE_SIZE = 1000
     PREDICTION_BATCH_SIZE = 128
 
     # Input of the DNN
@@ -83,16 +83,16 @@ class Config:
     #IMAGE_HEIGHT = 1
 
     # Total number of episodes and annealing frequency
-    EPISODES = 100
-    ANNEALING_EPISODE_COUNT = 100
+    EPISODES = 300000
+    ANNEALING_EPISODE_COUNT = 4000
 
     # Entropy regualrization hyper-parameter
     BETA_START = 0.01
     BETA_END = 0.01
 
     # Learning rate
-    LEARNING_RATE_START = 0.0003
-    LEARNING_RATE_END = 0.0003
+    LEARNING_RATE_START = 0.09
+    LEARNING_RATE_END = 0.003
 
     # RMSProp parameters
     RMSPROP_DECAY = 0.99
@@ -121,7 +121,7 @@ class Config:
     # Enable to save models every SAVE_FREQUENCY episodes
     SAVE_MODELS = True
     # Save every SAVE_FREQUENCY episodes
-    SAVE_FREQUENCY = 90
+    SAVE_FREQUENCY = 1000
     
     # Print stats every PRINT_STATS_FREQUENCY episodes
     PRINT_STATS_FREQUENCY = 1

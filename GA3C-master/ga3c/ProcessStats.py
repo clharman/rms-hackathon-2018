@@ -35,6 +35,7 @@ from multiprocessing import Process, Queue, Value
 
 import numpy as np
 import time
+import matplotlib.pyplot as plt
 
 from Config import Config
 
