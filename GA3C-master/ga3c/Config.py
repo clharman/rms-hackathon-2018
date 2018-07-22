@@ -37,7 +37,7 @@ class Config:
     # Enable to train
     TRAIN_MODELS = True
     # Load old models. Throws if the model doesn't exist
-    LOAD_CHECKPOINT = True
+    LOAD_CHECKPOINT = False
     # If 0, the latest checkpoint is loaded
     LOAD_EPISODE = 0 
 
@@ -67,10 +67,10 @@ class Config:
     DISCOUNT = 0.99
     
     # Tmax
-    TIME_MAX = 10
+    TIME_MAX = 60
     
     # Reward Clipping
-    REWARD_MIN = -1
+    REWARD_MIN = -1000000
     REWARD_MAX = 1000000
 
     # Max size of the queue
@@ -91,7 +91,7 @@ class Config:
     BETA_END = 0.01
 
     # Learning rate
-    LEARNING_RATE_START = 0.09
+    LEARNING_RATE_START = 0.06
     LEARNING_RATE_END = 0.003
 
     # RMSProp parameters

@@ -247,7 +247,7 @@ class RaidEnv(gym.Env):
         self.simDone = self.CheckDone()
         self.state = [self.stateGrid,self.Angle,self.Ammo]
         # Return a long single dimension array version of state
-        self.reward = self.threatsKilled - self.damageTaken
+        self.reward = self.threatsKilled
         return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.reward,self.simDone, []
     #End of UpdateState
 
