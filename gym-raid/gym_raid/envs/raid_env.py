@@ -7,6 +7,7 @@ Created on Fri Jul 20 11:38:10 2018
 
 import time
 import numpy.random as rand
+from PIL import Image
 
 # core modules
 import logging.config
@@ -91,6 +92,7 @@ class RaidEnv(gym.Env):
         magazine_difficulty_input = rand.randint(1,3)
         self.iGen = inputGenerator(num_threats_input,time_difficulty_input,threat_difficulty_input,magazine_difficulty_input)
         newParams = inputGenerator.GenRaidEnvParams(self.iGen)
+        print("Target Params are",newParams)
         self.rInc = newParams[0]
         self.thetaInc = newParams[1]
         self.MagSize = newParams[2]
@@ -272,44 +274,116 @@ class RaidEnv(gym.Env):
         #print(self.Angle*30)
         print("The current sim state is:")
         print(state)
+        
+    def render(self):
+        
+        
+        # Open image files
+        image_background = Image.open('TestImages\star-background.bmp')
+        image_tie = Image.open('TestImages\TIEfighter2-fathead.bmp')
+        image_xwing = Image.open('TestImages\X-Wing1.bmp')
+        image_laser = Image.open('TestImages\laser.bmp')
+    
+        # Size for the targets
+        basewidth_targ = 160
+    
+        # Size for the x_wing
+        basewidth_gun = 220
+        
+        # Size for the laser projectile
+        basewidth_laser = 100
+    
+        bg_w, bg_h = image_background.size
+        bg_rad = int(min(bg_w/2,bg_h/2))
+    
+        # Compute stuff for the TIE image
+        wpercent_tie = (basewidth_targ / float(image_tie.size[0]))
+        hsize_tie = int((float(image_tie.size[1]) * float(wpercent_tie)))
+        image_tie = image_tie.resize((basewidth_targ, hsize_tie), Image.ANTIALIAS)
+        imgTie_w, imgTie_h = image_tie.size
+    
+        offset_tie = []
+        for tar in self.targets:
+            mod_rad = ((self.rInc - tar.range)/self.rInc)*bg_rad
+            offset_vertical = int(mod_rad*math.cos(math.radians(tar.location*30))+(bg_h - imgTie_h)//2)
+            offset_horizontal = int(mod_rad*math.sin(math.radians(tar.location*30))+(bg_w - imgTie_w)//2)
+            offset_temp = (offset_horizontal, offset_vertical)
+            offset_tie.append(offset_temp)
+    
+        # Compute stuff for the X-Wing image
+        wpercent_xwing = (basewidth_gun / float(image_xwing.size[0]))
+        hsize_xwing = int((float(image_xwing.size[1]) * float(wpercent_xwing)))
+        image_xwing = image_xwing.resize((basewidth_gun, hsize_xwing), Image.ANTIALIAS)
+        image_xwing = image_xwing.transpose(Image.ROTATE_180)
+        image_xwing = image_xwing.rotate(-30*self.Angle-10)
+        imgXwing_w, imgXwing_h = image_xwing.size
+        
+        offset_xwing = ((bg_w - imgXwing_w) // 2, (bg_h - imgXwing_h) // 2)
+        
+        # Stuff for the laser images
+        wpercent_las = (basewidth_laser / float(image_laser.size[0]))
+        hsize_las = int((float(image_laser.size[1]) * float(wpercent_las)))
+        image_laser = image_laser.resize((basewidth_laser, hsize_las), Image.ANTIALIAS)
+        imgLas_w, imgLas_h = image_laser.size
+        
+        offset_laser = []
+        for cept in self.interceptors:
+            mod_rad = ((cept.range - self.rInc)/self.rInc)*bg_rad
+            offset_vertical = int(mod_rad*math.cos(math.radians(cept.location*30))+(bg_h - imgLas_h)//2)
+            offset_horizontal = int(-1*mod_rad*math.sin(math.radians(cept.location*30))+(bg_w - imgLas_w)//2)
+            offset_temp = (offset_horizontal, offset_vertical)
+            offset_laser.append(offset_temp)
 
+        image_temp = image_background
+        image_temp.paste(image_xwing,offset_xwing)
+        for i in range(len(self.targets)):
+            if self.targets[i].alive:
+                if self.simTime >= self.targets[i].start_time:
+                    image_temp.paste(image_tie,offset_tie[i])
+    
+        for i in range(len(self.interceptors)):
+            if self.interceptors[i].alive:
+                image_laser_rot = image_laser.transpose(Image.ROTATE_90)
+                image_temp.paste(image_laser_rot,offset_laser[i])
+    
+        image = image_temp
+        image.save('TestImages\out.png')
+        image.show()
+        
 if __name__ == "__main__":
-    RangeNumPixels = 25
-    ThetaNumPixels = 12
-    NumberOfTargets = 4
-    TargetStartTimes = [0,0,3,12]
-    TargetStartLocations = [0,4,7,0]
-    TargetType = ['Threat1','Threat2','Threat1','Threat1']
-    MaxAmmo = 20
     
     theSim = RaidEnv()
     
     curState = theSim.reset()
     
     theSim.PrintState(curState)
-    for i in range(max(TargetStartTimes)+30):
+    for i in range(100):
         #time.sleep(1.000)
         
         if i == 2:
-            out = theSim.step("Shoot")
+            out = theSim.step(0)
         elif i >= 3 and i < 7:
-            out = theSim.step("Right")
+            out = theSim.step(2)
         elif i == 7:
-            out = theSim.step("Shoot")
+            out = theSim.step(0)
         elif i == 8:
-            out = theSim.step("Shoot")
+            out = theSim.step(0)
         elif i >= 10 and i < 13:
-            out = theSim.step("Right")
+            out = theSim.step(2)
         elif i == 14:
-            out = theSim.step("Shoot")
+            out = theSim.step(0)
         elif i >= 15 and i <22:
-            out = theSim.step("Left")
+            out = theSim.step(1)
         elif i == 23 or i == 24 or i == 25:
-            out = theSim.step("Shoot")
+            out = theSim.step(0)
         else:
-            out = theSim.step("Wait")
+            out = theSim.step(3)
         
         theSim.PrintState(out[0])
+        
+        if i % 3 == 0:
+            theSim.render()
+        
         if out[2]:
             break
 
