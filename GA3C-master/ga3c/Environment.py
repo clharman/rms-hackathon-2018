@@ -85,7 +85,8 @@ class Environment:
     def step(self, action):
         observation, reward, done, _ = self.game.step(action)
 
-        self.total_reward += reward
+        # changed from +=
+        self.total_reward = reward
         self._update_frame_q(observation)
 
         self.previous_state = self.current_state

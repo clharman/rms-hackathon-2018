@@ -37,7 +37,7 @@ class Config:
     # Enable to train
     TRAIN_MODELS = True
     # Load old models. Throws if the model doesn't exist
-    LOAD_CHECKPOINT = False
+    LOAD_CHECKPOINT = True
     # If 0, the latest checkpoint is loaded
     LOAD_EPISODE = 0 
 
@@ -48,15 +48,15 @@ class Config:
     # Number of Agents
     AGENTS = 4 
     # Number of Predictors
-    PREDICTORS = 2
+    PREDICTORS = 1
     # Number of Trainers
-    TRAINERS = 2
+    TRAINERS = 1
 
     # Device
     DEVICE = 'cpu:0'
 
     # Enable the dynamic adjustment (+ waiting time to start it)
-    DYNAMIC_SETTINGS = True
+    DYNAMIC_SETTINGS = False
     DYNAMIC_SETTINGS_STEP_WAIT = 20
     DYNAMIC_SETTINGS_INITIAL_WAIT = 10
 
@@ -67,7 +67,7 @@ class Config:
     DISCOUNT = 0.99
     
     # Tmax
-    TIME_MAX = 60
+    TIME_MAX = 5
     
     # Reward Clipping
     REWARD_MIN = -1000000
@@ -79,20 +79,20 @@ class Config:
 
     # Input of the DNN
     STACKED_FRAMES = 1
-    IMAGE_WIDTH = 25*12*3+2
+    IMAGE_WIDTH = 25*12*3+3 #(angular slices * range slices * len[interceptor, target1, target2] + launcher angle + magazine capacity + total threats in raid)
     #IMAGE_HEIGHT = 1
 
     # Total number of episodes and annealing frequency
-    EPISODES = 300000
-    ANNEALING_EPISODE_COUNT = 4000
+    EPISODES = 20100
+    ANNEALING_EPISODE_COUNT = 1
 
     # Entropy regualrization hyper-parameter
     BETA_START = 0.01
     BETA_END = 0.01
 
     # Learning rate
-    LEARNING_RATE_START = 0.06
-    LEARNING_RATE_END = 0.003
+    LEARNING_RATE_START = 0.002
+    LEARNING_RATE_END = 0.001
 
     # RMSProp parameters
     RMSPROP_DECAY = 0.99
@@ -121,7 +121,7 @@ class Config:
     # Enable to save models every SAVE_FREQUENCY episodes
     SAVE_MODELS = True
     # Save every SAVE_FREQUENCY episodes
-    SAVE_FREQUENCY = 1000
+    SAVE_FREQUENCY = 5000
     
     # Print stats every PRINT_STATS_FREQUENCY episodes
     PRINT_STATS_FREQUENCY = 1

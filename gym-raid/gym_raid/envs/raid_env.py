@@ -18,6 +18,8 @@ import pkg_resources
 import cfg_load
 import gym
 import numpy as np
+import matplotlib.pyplot as plt
+import sys
 
 path = 'config.yaml'  # always use slash in packages
 filepath = pkg_resources.resource_filename('gym_raid', path)
@@ -92,7 +94,7 @@ class RaidEnv(gym.Env):
         magazine_difficulty_input = rand.randint(1,3)
         self.iGen = inputGenerator(num_threats_input,time_difficulty_input,threat_difficulty_input,magazine_difficulty_input)
         newParams = inputGenerator.GenRaidEnvParams(self.iGen)
-        print("Target Params are",newParams)
+        #print("Target Params are",newParams)
         self.rInc = newParams[0]
         self.thetaInc = newParams[1]
         self.MagSize = newParams[2]
@@ -100,6 +102,8 @@ class RaidEnv(gym.Env):
         self.Angle = 0
         self.projCount = 0 # Ids for the projectiles
         
+        self.viewer = None
+
         self.stateGrid = np.zeros((self.thetaInc,self.rInc,3))
         self.targets = []
         self.interceptors = []
@@ -110,7 +114,7 @@ class RaidEnv(gym.Env):
         self.simDone = False
         self.dictActions = { 0:'Shoot', 1:'Left', 2:'Right', 3:'Wait'}
         
-        self.state = [self.stateGrid,self.Angle,self.MagSize]
+        self.state = [self.stateGrid,self.Angle,self.MagSize,len(self.targets)]
         
         #Intialize random number generator for consistency
         rand.seed(12)
@@ -139,10 +143,10 @@ class RaidEnv(gym.Env):
                 else:
                     self.stateGrid[tar.location][0][self.targetDict[tar.kind]] = tar.id
         
-        self.state = [self.stateGrid,self.Angle,self.Ammo]
+        self.state = [self.stateGrid,self.Angle,self.Ammo,self.numThreats]
         
         # Return a long single dimension array version of state
-        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo])
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo, self.numThreats-self.threatsKilled])
 
     def step(self,action):
         curTime = self.simTime
@@ -188,18 +192,18 @@ class RaidEnv(gym.Env):
             #else:
                 #print("Can't shoot! Out of ammo!")
         elif self.dictActions[action] == 'Left':
-            tempAngle = self.Angle - 1
+            #tempAngle = self.Angle - 1
             # Wrap around
-            if tempAngle < 0:
-                tempAngle = self.thetaInc -1
-            self.Angle = tempAngle
+            #if tempAngle < 0:
+            #    tempAngle = self.thetaInc -1
+            self.Angle = (self.Angle - 1) % self.thetaInc
             #print("TURNED LEFT!")
         elif self.dictActions[action] == 'Right':
-            tempAngle = self.Angle + 1
+            #tempAngle = self.Angle + 1
             # Wrap around
-            if tempAngle >= self.thetaInc:
-                tempAngle = 0
-            self.Angle = tempAngle
+            #if tempAngle >= self.thetaInc:
+            #    tempAngle = 0
+            self.Angle = (self.Angle + 1) % self.thetaInc
             #print("TURNED RIGHT!")
         elif self.dictActions[action] == 'Wait':
             pass
@@ -249,8 +253,15 @@ class RaidEnv(gym.Env):
         self.simDone = self.CheckDone()
         self.state = [self.stateGrid,self.Angle,self.Ammo]
         # Return a long single dimension array version of state
-        self.reward = self.threatsKilled
-        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo]),self.reward,self.simDone, []
+        # TODO: Try a reward for aiming toward a threat???? Really need render working to see if it does this already
+        
+        threatsKilled = self.threatsKilled
+
+        linedUpWithThreat = np.any(self.stateGrid[:,self.Angle,0]) or np.any(self.stateGrid[:,self.Angle,1])
+
+        self.reward = linedUpWithThreat * 0.5 + threatsKilled
+
+        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo, self.numThreats-self.threatsKilled]),self.reward,self.simDone, []
     #End of UpdateState
 
     def CheckDone(self):
@@ -276,7 +287,35 @@ class RaidEnv(gym.Env):
         print(state)
         
     def render(self):
-        
+        # Set up figure
+
+        # Set up landscape
+        theta = np.linspace(0, 360, num=self.thetaInc, endpoint=False)
+        r = np.linspace(0, self.rInc, num=self.rInc, endpoint=False)
+        plt.clf()
+        ax = plt.subplot(111, projection='polar')
+        ax.set_rticks(r)
+
+        ax.set_thetagrids(theta)
+        ax.grid(True)
+
+        # Plot threats and interceptors
+        t1s = np.where(self.stateGrid[:,:,0])
+        t2s = np.where(self.stateGrid[:,:,1])
+        ins = np.where(self.stateGrid[:,:,2])
+
+        ax.plot(theta[t1s[0]]*np.pi/180, self.rInc - r[t1s[1]], 'rx')
+        ax.plot(theta[t2s[0]]*np.pi/180, self.rInc - r[t2s[1]], 'r+')
+        ax.plot(theta[ins[0]]*np.pi/180, self.rInc - r[ins[1]], 'bo')
+        # Plot turret angle
+        turret_length = 4
+        ax.plot([theta[self.Angle]*np.pi/180, theta[self.Angle]*np.pi/180], [0, turret_length], 'k-')
+        plt.title('%s killed. %s hits taken. %s angle index.' % (self.threatsKilled, self.damageTaken, self.Angle))
+        plt.savefig('env.png')
+        ax.set_rmax(r[-1]+1)
+        plt.pause(0.0001)
+
+    def renderFancy(self):
         
         # Open image files
         image_background = Image.open('TestImages\star-background.bmp')

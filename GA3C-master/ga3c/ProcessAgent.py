@@ -108,7 +108,7 @@ class ProcessAgent(Process):
 
                 updated_exps = ProcessAgent._accumulate_rewards(experiences, self.discount_factor, terminal_reward)
                 x_, r_, a_ = self.convert_data(updated_exps)
-                yield x_, r_, a_, reward_sum
+                yield x_, r_, a_, reward
 
                 # reset the tmax count
                 time_count = 0
@@ -130,4 +130,4 @@ class ProcessAgent(Process):
                 total_reward += reward_sum
                 total_length += len(r_) + 1  # +1 for last frame that we drop
                 self.training_q.put((x_, r_, a_))
-            self.episode_log_q.put((datetime.now(), total_reward, total_length))
+            self.episode_log_q.put((datetime.now(), reward_sum, total_length))

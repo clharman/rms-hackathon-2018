@@ -99,9 +99,13 @@ class Server:
     def save_model(self):
         self.model.save(self.stats.episode_count.value)
 
+    def main_simple(self):
+        self.agent = ProcessAgent(len(self.agents), self.prediction_q, self.training_q, self.stats.episode_log_q)
+        self.agent.run()
+
     def main(self):
         self.stats.start()
-        self.dynamic_adjustment.start()
+        self.dynamic_adjustment.run()
 
         if Config.PLAY_MODE:
             for trainer in self.trainers:
