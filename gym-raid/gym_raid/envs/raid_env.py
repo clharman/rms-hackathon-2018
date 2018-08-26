@@ -88,7 +88,7 @@ class RaidEnv(gym.Env):
     
     def __init__(self):
         self.simTime = 0
-        num_threats_input = rand.randint(4,10)
+        num_threats_input = 1#rand.randint(4,10)
         time_difficulty_input = rand.randint(1,3)
         threat_difficulty_input = rand.randint(1,3)
         magazine_difficulty_input = rand.randint(1,3)
@@ -101,8 +101,10 @@ class RaidEnv(gym.Env):
         self.probability_kill = newParams[3]
         self.Angle = 0
         self.projCount = 0 # Ids for the projectiles
+        self.actions_taken = []
         
         self.viewer = None
+        self.reward = 0
 
         self.stateGrid = np.zeros((self.thetaInc,self.rInc,3))
         self.targets = []
@@ -115,7 +117,8 @@ class RaidEnv(gym.Env):
         self.dictActions = { 0:'Shoot', 1:'Left', 2:'Right', 3:'Wait'}
         
         self.state = [self.stateGrid,self.Angle,self.MagSize,len(self.targets)]
-        
+        self.observation_space = gym.spaces.Discrete(len(self.state))
+
         #Intialize random number generator for consistency
         rand.seed(12)
     
@@ -133,6 +136,8 @@ class RaidEnv(gym.Env):
         self.damageTaken = 0
         self.simTime = 0
         self.threatsKilled = 0
+        self.reward = 0
+        self.stateGrid = np.zeros((self.thetaInc,self.rInc,3))
         
         # Setup the initial state
         for tar in self.targets:
@@ -191,12 +196,14 @@ class RaidEnv(gym.Env):
                 #print("Took a shot, remaining ammo is:",self.Ammo)
             #else:
                 #print("Can't shoot! Out of ammo!")
+            self.actions_taken += ['F']
         elif self.dictActions[action] == 'Left':
             #tempAngle = self.Angle - 1
             # Wrap around
             #if tempAngle < 0:
             #    tempAngle = self.thetaInc -1
             self.Angle = (self.Angle - 1) % self.thetaInc
+            self.actions_taken += ['L']
             #print("TURNED LEFT!")
         elif self.dictActions[action] == 'Right':
             #tempAngle = self.Angle + 1
@@ -205,6 +212,7 @@ class RaidEnv(gym.Env):
             #    tempAngle = 0
             self.Angle = (self.Angle + 1) % self.thetaInc
             #print("TURNED RIGHT!")
+            self.actions_taken += ['R']
         elif self.dictActions[action] == 'Wait':
             pass
         else:
@@ -255,13 +263,11 @@ class RaidEnv(gym.Env):
         # Return a long single dimension array version of state
         # TODO: Try a reward for aiming toward a threat???? Really need render working to see if it does this already
         
-        threatsKilled = self.threatsKilled
+        linedUpWithThreat = np.any(self.stateGrid[self.Angle,:,0]) or np.any(self.stateGrid[self.Angle,:,1])
+        shotEmMissiles = 1-1/(self.Ammo+1)
+        self.reward += linedUpWithThreat
 
-        linedUpWithThreat = np.any(self.stateGrid[:,self.Angle,0]) or np.any(self.stateGrid[:,self.Angle,1])
-
-        self.reward = linedUpWithThreat * 0.5 + threatsKilled
-
-        return np.append(np.reshape(self.stateGrid,-1),[self.Angle,self.Ammo, self.numThreats-self.threatsKilled]),self.reward,self.simDone, []
+        return np.append(self.stateGrid.ravel(),[self.Angle,self.Ammo, self.numThreats-self.threatsKilled]),self.reward,self.simDone, []
     #End of UpdateState
 
     def CheckDone(self):
@@ -277,7 +283,7 @@ class RaidEnv(gym.Env):
             else:
                 print("Killed ", self.threatsKilled, " Out of ", len(self.targets), " targets")
             print(self.Ammo, " out of ", self.MagSize, " shots left")
-                
+            #print(self.actions_taken)
         return done
 
     def PrintState(self,state):
@@ -310,7 +316,7 @@ class RaidEnv(gym.Env):
         # Plot turret angle
         turret_length = 4
         ax.plot([theta[self.Angle]*np.pi/180, theta[self.Angle]*np.pi/180], [0, turret_length], 'k-')
-        plt.title('%s killed. %s hits taken. %s angle index.' % (self.threatsKilled, self.damageTaken, self.Angle))
+        plt.title('%s killed. %s hits taken. %s angle index. %s reward.' % (self.threatsKilled, self.damageTaken, self.Angle, self.reward))
         plt.savefig('env.png')
         ax.set_rmax(r[-1]+1)
         plt.pause(0.0001)
